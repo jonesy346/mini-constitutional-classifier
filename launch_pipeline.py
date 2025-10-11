@@ -28,7 +28,7 @@ PATH_TO_GEN_CRIT_RESULTS = "outputs/gen_crit_results_sample.json"
 # -------------------------------------------
 # Pipeline Entry Point
 # -------------------------------------------
-def run_generation_pipeline(models, path_to_prompts_jsonl, path_to_constitution_txt, output_path):
+def run_generation_pipeline(models, path_to_prompts_jsonl, path_to_constitution_txt, output_path, num_gen_candidates=2):
     """
     Runs candidate generation and scoring using provided generator + critic models.
     """
@@ -43,7 +43,7 @@ def run_generation_pipeline(models, path_to_prompts_jsonl, path_to_constitution_
     device = models["device"]
 
     for prompt in tqdm(prompts, desc="Generating + Critiquing"):
-        candidates = generate_candidates(prompt["prompt"], gen_model, gen_tok, device, n=2)
+        candidates = generate_candidates(prompt["prompt"], gen_model, gen_tok, device, n=num_gen_candidates)
         scored = []
         for cand in candidates:
             critique = critic_score(prompt["prompt"], cand, constitution, crit_model, crit_tok, device)
@@ -80,6 +80,7 @@ def launch_pipeline(
     critic_model: str = "EleutherAI/gpt-neo-125M",
     policy_name: str = "margin",
     include: str = "both",
+    num_gen_candidates: int = 2,
     regenerate: bool = False,
     path_to_prompts: str = PATH_TO_PROMPTS_JSONL,
     path_to_gen_crit_results: str = PATH_TO_GEN_CRIT_RESULTS,
@@ -103,15 +104,18 @@ def launch_pipeline(
         The selection policy to use ("best", "margin", or "diverse").
     include : str
         Whether to include "best", "worst", or "both" candidates during flattening.
+    num_gen_candidates : int
+        The number of candidates to generate per prompt.
     regenerate : bool
         If True, forces regeneration even if cached results exist.
     """
 
     print(f"\n🚀 Launching pipeline with:")
-    print(f"  Gen Model: {gen_model}")
+    print(f"  Gen Model:    {gen_model}")
     print(f"  Critic Model: {critic_model}")
     print(f"  Policy:       {policy_name}")
     print(f"  Include:      {include}")
+    print(f"  Candidates:   {num_gen_candidates}")
     print(f"  Regenerate:   {regenerate}\n")
 
     # --- Step 1: Run or load generation results ---
@@ -126,7 +130,8 @@ def launch_pipeline(
             models,
             path_to_prompts,
             PATH_TO_CONSTITUTION_TXT,
-            path_to_gen_crit_results
+            path_to_gen_crit_results,
+            num_gen_candidates=num_gen_candidates
         )
         with open(path, "w") as fw:
             json.dump(results, fw, indent=2, ensure_ascii=False)
