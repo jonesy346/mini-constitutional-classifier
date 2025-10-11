@@ -1,3 +1,4 @@
+# utils/evaluation.py
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -6,7 +7,7 @@ import statistics
 from pathlib import Path
 
 
-def evaluate_model(results):
+def compile_results(results):
     """
     Evaluates filtered outputs after selection.
 
@@ -50,7 +51,7 @@ def evaluate_model(results):
     }
 
 
-def evaluate_checkpoint(checkpoint_path: str):
+def compile_results_from_path(checkpoint_path: str):
     """
     Loads a Day 3-style filtered dataset (JSON) from disk and evaluates it.
 
@@ -66,7 +67,7 @@ def evaluate_checkpoint(checkpoint_path: str):
     with open(path, "r") as f:
         data = json.load(f)
 
-    metrics = evaluate_model(data)
+    metrics = compile_results(data)
 
     print(
         f"\n📊 Checkpoint Evaluation ({checkpoint_path}):\n"

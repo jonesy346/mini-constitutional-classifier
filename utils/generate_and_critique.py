@@ -1,9 +1,7 @@
-# gen_and_critique.py
-from transformers import AutoTokenizer, AutoModelForCausalLM
+# utils/generate_and_critique.py
 import torch
 from tqdm import tqdm
 from datetime import datetime
-import re
 
 if torch.backends.mps.is_available():
     device = "mps"
@@ -16,9 +14,6 @@ print(f"Using device: {device}")
 
 GEN_MODEL = "EleutherAI/gpt-neo-1.3B"  # small, switch to larger if you have GPUs
 CRITIC_MODEL = "EleutherAI/gpt-neo-125M"
-# CRITIC_MODEL = "google/gemma-2b-it"
-# CRITIC_MODEL = "microsoft/phi-2"
-# CRITIC_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 # --- Critic prompt templates ---
 CRITIC_PROMPTS = {
@@ -36,23 +31,6 @@ CRITIC_PROMPTS = {
     )
 }
 
-USE_INSTRUCT_CRITIC = True  # whether to use the instruct-style prompt for the critic
-
-gen_tok = AutoTokenizer.from_pretrained(GEN_MODEL)
-gen_tok.pad_token = gen_tok.eos_token
-gen = AutoModelForCausalLM.from_pretrained(GEN_MODEL).to(device)
-gen.config.pad_token_id = gen_tok.eos_token_id  # address warning "The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results. Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."
-
-
-crit_tok = AutoTokenizer.from_pretrained(CRITIC_MODEL)
-crit_tok.pad_token = crit_tok.eos_token
-crit = AutoModelForCausalLM.from_pretrained(
-    CRITIC_MODEL,
-    torch_dtype=torch.float32,     # phi-2 not trained in fp16
-    low_cpu_mem_usage=True
-).to(device)
-crit.config.pad_token_id = crit_tok.eos_token_id
-
 
 now = datetime.now()
 current_datetime_string = now.strftime("%Y-%m-%d %H:%M")
@@ -63,12 +41,16 @@ PATH_TO_CONSTITUTION_TXT = "constitution.txt"
 OUTPUT_FILE_PATH = f"outputs/gen_crit_results_{clean_datetime_string}.json"
 
 
-def generate_candidates(prompt, n=2, max_len=100):
-    input_ids = gen_tok(prompt, return_tensors="pt", padding=True, truncation=True).input_ids.to(device)
-    attention_mask = gen_tok(prompt, return_tensors="pt", padding=True, truncation=True).attention_mask.to(device)
-    out = gen.generate(
-        input_ids,
-        attention_mask=attention_mask,
+# -------------------------------------------
+# Candidate Generation
+# -------------------------------------------
+def generate_candidates(prompt, gen_model, gen_tok, device, n=2, max_len=100):
+    """
+    Generates N candidate completions for a given prompt.
+    """
+    inputs = gen_tok(prompt, return_tensors="pt", padding=True, truncation=True).to(device)
+    out = gen_model.generate(
+        **inputs,
         do_sample=True,
         top_p=0.9,
         temperature=0.8,
@@ -78,19 +60,17 @@ def generate_candidates(prompt, n=2, max_len=100):
     )
 
     texts = [gen_tok.decode(o, skip_special_tokens=True) for o in out]
-    # Each text includes prompt; strip prompt if needed.
+    # Optional: strip the prompt if it repeats
     return texts
-
-def critic_score(user_prompt: str, candidate: str, constitution: str, use_instruct: bool = False):
+# -------------------------------------------
+# Critique Scoring
+# -------------------------------------------
+def critic_score(user_prompt, candidate, constitution, crit_model, crit_tok, device, use_instruct=True):
     """
-    Unified critic function supporting both basic and instruct-style prompts.
-    Outputs:
-      SCORE: <int>
-      REASON: <string>
+    Produces a safety/alignment score and reason for a candidate response.
     """
 
-    style = "instruct" if use_instruct else "basic"
-    system_msg = CRITIC_PROMPTS[style]
+    system_msg = CRITIC_PROMPTS["instruct"] if use_instruct else CRITIC_PROMPTS["basic"]
 
     critique_prompt = f"""{system_msg}
 
@@ -100,40 +80,32 @@ Constitution:
 User prompt:
 {user_prompt}
 
-Candidate response:
+Candidate:
 {candidate}
 
-Now provide your evaluation:
+Evaluation:
 """
 
-    inputs = crit_tok(
-        critique_prompt,
-        return_tensors="pt",
-        truncation=True,
-        padding=True,
-        max_length=1024
-    ).to(device)
-
-    output = crit.generate(
+    inputs = crit_tok(critique_prompt, return_tensors="pt", truncation=True, padding=True).to(device)
+    output = crit_model.generate(
         **inputs,
-        do_sample=True,
+        max_new_tokens=120,
         temperature=0.3,
         top_p=0.9,
-        max_new_tokens=60,
-        pad_token_id=crit_tok.eos_token_id,
+        pad_token_id=crit_tok.eos_token_id
     )
 
-    text = crit_tok.decode(output[0], skip_special_tokens=True).strip()
+    text = crit_tok.decode(output[0], skip_special_tokens=True)
+    # Simple parse for the two-line format
+    lines = text.strip().splitlines()
+    score, reason = None, ""
+    for line in lines:
+        if line.startswith("SCORE:"):
+            try:
+                score = int(line.split(":")[1].strip())
+            except ValueError:
+                pass
+        elif line.startswith("REASON:"):
+            reason = line.split(":", 1)[1].strip()
 
-    # --- Simple parse ---
-    score_match = re.search(r"SCORE:\s*(\d)", text)
-    reason_match = re.search(r"REASON:\s*(.*)", text)
-
-    score = int(score_match.group(1)) if score_match else None
-    reason = reason_match.group(1).strip() if reason_match else text.strip()
-
-    return {
-        "raw_text": text,
-        "score": score,
-        "reason": reason
-    }
+    return {"score": score, "reason": reason or text.strip()}

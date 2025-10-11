@@ -1,5 +1,4 @@
-
-
+# utils/selection_policy.py
 def select_best_candidate(prompt_entry):
     """
     Best-Answer Policy
@@ -118,11 +117,3 @@ def filter_valid_outputs(entry, safe_threshold=SAFE_THRESHOLD):
         if not contradiction:
             valid.append(candidate)
     return valid
-
-"""
-To run:
-
-with open("data/filtered_aligned_outputs.json", "w") as fw:
-    json.dump(filtered, fw, indent=2, ensure_ascii=False)
-"""
-
