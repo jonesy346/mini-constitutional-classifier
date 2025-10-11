@@ -1,7 +1,6 @@
 # gen_and_critique.py
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
-import json
 from tqdm import tqdm
 from datetime import datetime
 import re
@@ -138,35 +137,3 @@ Now provide your evaluation:
         "score": score,
         "reason": reason
     }
-
-
-# Example usage
-if __name__ == "__main__":
-    constitution = open(PATH_TO_CONSTITUTION_TXT).read()
-    with open(PATH_TO_PROMPTS_JSONL) as f:
-        prompts = [json.loads(l) for l in f]
-
-    results = []
-    for prompt in tqdm(prompts, desc="Generating responses and critiques"):
-        user_prompt = prompt["prompt"]
-        prompt_id = prompt.get("id", None)
-        candidates = generate_candidates(user_prompt, n=4)
-        scored_candidates = []
-        for candidate in candidates:
-            critique = critic_score(user_prompt, candidate, constitution, use_instruct=USE_INSTRUCT_CRITIC)
-            scored_candidates.append({
-                "candidate": candidate.strip(),
-                "critique_raw": critique["raw_text"],
-                "score": critique["score"],
-                "reason": critique["reason"]
-            })
-
-        # Record prompt-level entry
-        results.append({
-            "id": prompt_id,
-            "prompt": user_prompt,
-            "scored": scored_candidates
-        })
-    
-    with open(OUTPUT_FILE_PATH, "w") as fw:
-        json.dump(results, fw, indent=2, ensure_ascii=False)
