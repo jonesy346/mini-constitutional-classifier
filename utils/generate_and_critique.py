@@ -2,6 +2,8 @@
 import torch
 from tqdm import tqdm
 from datetime import datetime
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
 
 if torch.backends.mps.is_available():
     device = "mps"
@@ -13,7 +15,7 @@ else:
 print(f"Using device: {device}")
 
 GEN_MODEL = "EleutherAI/gpt-neo-1.3B"  # small, switch to larger if you have GPUs
-CRITIC_MODEL = "EleutherAI/gpt-neo-125M"
+CRITIC_MODEL = "google/gemma-2b-it"  # Instruction-tuned for better scoring compliance
 
 # --- Critic prompt templates ---
 CRITIC_PROMPTS = {
@@ -39,6 +41,70 @@ clean_datetime_string = current_datetime_string.replace(" ", "_").replace(":", "
 PATH_TO_PROMPTS_JSONL = "data/prompts.jsonl"
 PATH_TO_CONSTITUTION_TXT = "constitution.txt"
 OUTPUT_FILE_PATH = f"outputs/gen_crit_results_{clean_datetime_string}.json"
+
+
+# -------------------------------------------
+# Model Loading
+# -------------------------------------------
+def load_generation_model(model_name_or_path, is_lora=False, base_model="microsoft/phi-2"):
+    """
+    Load a generation model (base or fine-tuned with LoRA).
+
+    Args:
+        model_name_or_path: HuggingFace model name or path to LoRA adapter
+        is_lora: If True, expects model_name_or_path to be a LoRA adapter path
+        base_model: Base model name (only used when is_lora=True)
+
+    Returns:
+        (tokenizer, model) tuple
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
+
+    if is_lora:
+        print(f"Loading base model {base_model} for LoRA adapter...")
+        tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(base_model, trust_remote_code=True)
+
+        print(f"Loading LoRA adapter from {model_name_or_path}...")
+        model = PeftModel.from_pretrained(model, model_name_or_path)
+    else:
+        print(f"Loading model {model_name_or_path}...")
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(model_name_or_path, trust_remote_code=True)
+
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    model = model.to(device)
+    model.eval()
+
+    return tokenizer, model
+
+
+def load_critic_model(model_name=CRITIC_MODEL):
+    """
+    Load the critic model for scoring.
+
+    Args:
+        model_name: HuggingFace model name
+
+    Returns:
+        (tokenizer, model) tuple
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    print(f"Loading critic model {model_name}...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    model = model.to(device)
+    model.eval()
+
+    return tokenizer, model
 
 
 # -------------------------------------------
