@@ -198,22 +198,12 @@ The evaluation produces several key metrics:
 
 ### Step 4: Using the Fine-Tuned Model
 
-After training completes, the LoRA adapter and tokenizer are saved to `outputs/lora-sft/`. To use the fine-tuned model for inference, load both the base model and the adapter:
+After training completes, use the fine-tuned model for inference:
 
-```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
-
-# Load base model and tokenizer
-base_model = AutoModelForCausalLM.from_pretrained("microsoft/phi-2", trust_remote_code=True)
-tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2", trust_remote_code=True)
-
-# Load LoRA adapter
-model = PeftModel.from_pretrained(base_model, "outputs/lora-sft")
-
-# Generate text
-prompt = "Instruction:\nExplain what model alignment means in simple terms.\n\nResponse:\n"
-inputs = tokenizer(prompt, return_tensors="pt")
-outputs = model.generate(**inputs, max_length=200)
-print(tokenizer.decode(outputs[0]))
+```bash
+python infer_sft.py
 ```
+
+This script loads your LoRA adapter from `outputs/lora-sft/` and generates a sample response. Edit the `BASE` variable in `infer_sft.py` to match your training base model, and modify the prompt to test different inputs.
+
+For more advanced usage (side-by-side comparison of baseline vs fine-tuned), see `compare_models.py`.
