@@ -14,6 +14,63 @@ Train models on curated data using LoRA (Low-Rank Adaptation), then rigorously e
 
 Together, these pipelines enable a complete workflow: from generating safe responses, to training models on them, to validating the improvements.
 
+## Pipeline Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   PIPELINE 1: Constitutional Response Generation        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  [Prompts] → [Generator Model] → [Candidate Responses]                  │
+│      ↓              ↓                      ↓                            │
+│  data/prompts.jsonl  EleutherAI/gpt-neo   Multiple outputs per prompt   │
+│                                                                         │
+│  [Candidate Responses] → [Critic Model] → [Safety Scores]               │
+│       ↓              ↓                  ↓                               │
+│  All outputs    google/gemma-2b-it   Score 1-5 + reason                 │
+│                                                                         │
+│  [Scored Outputs] → [Selection Policy] → [Filtered Dataset]             │
+│         ↓                  ↓                      ↓                     │
+│  outputs/sample.json   best/margin/diverse   High-quality examples      │
+│                                                                         │
+│  📁 Key Files:                                                          │
+│  • launch_pipeline.py - Main orchestration script                       │
+│  • utils/generate_and_critique.py - Core generation & scoring logic     │
+│  • utils/selection_policy.py - Filtering strategies                     │
+│  • constitution.txt - Safety criteria for evaluation                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   PIPELINE 2: Fine-Tuning & Evaluation                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  [Filtered Data] → [Build SFT Dataset] → [Train/Val Splits]             │
+│         ↓                  ↓                      ↓                     │
+│  outputs/filtered_*.json   min_score=4    datasets/sft/*.jsonl          │
+│                                                                         │
+│  [Train/Val Splits] → [LoRA Fine-Tuning] → [Fine-Tuned Model]           │
+│       ↓                        ↓                      ↓                 │
+│  train.jsonl          microsoft/phi-2 +     outputs/lora-sft/ (adapter) │
+│                         LoRA adapters                                   │
+│                                                                         │
+│  [Baseline Model] ──┐                                                   │
+│  [Fine-Tuned Model] ├→ [Evaluation] → [Metrics & Comparison]            │
+│  [Eval Prompts] ────┘       ↓                    ↓                      │
+│                    Phase 1: Generate    Mean score, safe rate,          │
+│                    Phase 2: Generate    improved fraction,              │
+│                    Phase 3: Critique    delta metrics                   │
+│                                                                         │
+│  📁 Key Files:                                                          │
+│  • utils/build_sft_dataset.py - Convert filtered data to SFT format     │
+│  • train_lora.py - LoRA fine-tuning script                              │
+│  • evaluate_finetune_vs_baseline.py - Rigorous model comparison         │
+│  • compare_models.py - Quick side-by-side inference test                │
+│  • infer_sft.py - Simple inference with fine-tuned model                │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Features
 
 - **Multi-model integration** — plug-and-play support for models like:
