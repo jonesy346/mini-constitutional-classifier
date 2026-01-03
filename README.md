@@ -2,18 +2,17 @@
 
 ## Introduction
 
-*A lightweight, open-source experiment inspired by Anthropic’s Constitutional AI framework.*
+*A lightweight, open-source experiment inspired by Anthropic's Constitutional AI framework.*
 
-This project implements an end-to-end **LLM inference and safety evaluation pipeline**, allowing you to generate, critique, and select AI model responses based on human-aligned criteria.
+This project implements **two complementary pipelines** for building and evaluating safer language models:
 
-## Overview
+### Pipeline 1: Constitutional Response Generation
+Generate, critique, and curate AI responses based on constitutional principles. This pipeline helps you build high-quality training datasets by filtering responses according to safety criteria.
 
-The pipeline automates four core stages:
+### Pipeline 2: Fine-Tuning & Evaluation
+Train models on curated data using LoRA (Low-Rank Adaptation), then rigorously evaluate whether fine-tuning actually improved alignment through automated baseline comparisons.
 
-1. **Generation** — Produce multiple candidate responses from a base language model to a set of arbitrary prompts (either adversarial, borderline, or cooperating).
-2. **Critique** — Score each candidate via a judge/“critic” model using safety and alignment prompts.
-3. **Selection** — Apply configurable policies (best, margin, or diverse) to curate safe, high-quality samples.
-4. **Evaluation** — Compile safety metrics and performance summaries for baseline comparison.
+Together, these pipelines enable a complete workflow: from generating safe responses, to training models on them, to validating the improvements.
 
 ## Features
 
