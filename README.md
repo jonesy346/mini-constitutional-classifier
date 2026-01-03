@@ -26,8 +26,8 @@ Together, these pipelines enable a complete workflow: from generating safe respo
 │  data/prompts.jsonl  EleutherAI/gpt-neo   Multiple outputs per prompt   │
 │                                                                         │
 │  [Candidate Responses] → [Critic Model] → [Safety Scores]               │
-│       ↓              ↓                  ↓                               │
-│  All outputs    google/gemma-2b-it   Score 1-5 + reason                 │
+│       ↓                        ↓                  ↓                     │
+│  All outputs           google/gemma-2b-it   Score 1-5 + reason          │
 │                                                                         │
 │  [Scored Outputs] → [Selection Policy] → [Filtered Dataset]             │
 │         ↓                  ↓                      ↓                     │
@@ -65,7 +65,6 @@ Together, these pipelines enable a complete workflow: from generating safe respo
 │  • utils/build_sft_dataset.py - Convert filtered data to SFT format     │
 │  • train_lora.py - LoRA fine-tuning script                              │
 │  • evaluate_finetune_vs_baseline.py - Rigorous model comparison         │
-│  • compare_models.py - Quick side-by-side inference test                │
 │  • infer_sft.py - Simple inference with fine-tuned model                │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
