@@ -122,7 +122,100 @@ target_modules=["q_proj", "k_proj", "v_proj", "dense"]
 - **CUDA GPU**: Set `use_4bit=True` for QLoRA (requires bitsandbytes)
 - **CPU**: Works but slower
 
-### Step 3: Using the Fine-Tuned Model
+### Step 3: Evaluating Fine-Tuned vs Baseline
+
+After training, you should evaluate whether the fine-tuned model actually improved over the baseline. The evaluation script compares both models on a held-out test set.
+
+#### Running the Evaluation
+
+```bash
+python evaluate_finetune_vs_baseline.py \
+  --baseline_model_name="google/gemma-2-2b" \
+  --finetuned_model_path="outputs/lora-sft"
+```
+
+**Parameters:**
+- `baseline_model_name`: The base model to compare against (should match your training base model)
+- `finetuned_model_path`: Path to your LoRA adapter (default: `outputs/lora-sft`)
+- `finetuned_base_model`: (Optional) Override base model for LoRA adapter if different from baseline
+
+**Evaluation Process:**
+
+The script runs in 3 phases to minimize memory usage:
+1. **Phase 1**: Generate outputs using the baseline model
+2. **Phase 2**: Generate outputs using the fine-tuned model (with LoRA adapter)
+3. **Phase 3**: Score all outputs using the critic model (`google/gemma-2b-it`)
+
+**Output Files** (saved to `outputs/eval/`):
+- `paired_results.json` - Side-by-side comparison of baseline vs fine-tuned outputs
+- `failures.json` - Cases where fine-tuned scored lower than baseline
+- `report.json` - Aggregated metrics and summary statistics
+
+#### Understanding the Metrics
+
+The evaluation produces several key metrics:
+
+**Mean Score** (1-5 scale):
+- Average safety/alignment score from the critic model
+- Higher is better (more aligned with constitution)
+- Example: `baseline: 4.2, finetuned: 4.0`
+
+**Standard Deviation**:
+- Measures consistency of scores across prompts
+- Lower variance = more predictable behavior
+- Example: `baseline: 0.4, finetuned: 0.0` (all responses got same score)
+
+**Safe Rate** (0-1):
+- Fraction of responses scoring ≥ 4 (the safety threshold)
+- Target: 1.0 (100% safe responses)
+- Example: `baseline: 1.0, finetuned: 1.0` (both perfectly safe)
+
+**Improved Fraction** (0-1):
+- Fraction of prompts where fine-tuned scored higher than baseline
+- Target: > 0.5 (fine-tuned wins majority of comparisons)
+- Example: `0.0` means baseline won every comparison
+
+**Delta Metrics**:
+- `delta_mean`: Difference in average scores (positive = fine-tuned better)
+- `delta_safe_rate`: Difference in safety rates
+
+#### Example Output
+
+```json
+{
+  "baseline": {
+    "mean_score": 4.2,
+    "std_dev": 0.4,
+    "safe_rate": 1.0,
+    "num_samples": 5
+  },
+  "finetuned": {
+    "mean_score": 4.0,
+    "std_dev": 0.0,
+    "safe_rate": 1.0,
+    "num_samples": 5
+  },
+  "delta": {
+    "delta_mean": -0.2,
+    "delta_safe_rate": 0.0,
+    "improved_fraction": 0.0
+  }
+}
+```
+
+**Interpreting Results:**
+
+- **Positive delta_mean**: Fine-tuning improved alignment ✅
+- **Negative delta_mean**: Baseline performed better (may need more training data or different hyperparameters)
+- **Low improved_fraction with small sample size**: Results may be due to random variance - increase eval set size
+
+**Important Notes:**
+
+- **Small eval sets**: With only 5 prompts, results can be noisy. Consider creating a larger eval set in `datasets/eval/prompts.jsonl`
+- **Temperature during eval**: Currently uses `temperature=0.8` which adds randomness. For deterministic evaluation, see configuration options below.
+- **Critic model**: Uses `google/gemma-2b-it` for scoring. Ensure you have access to this model on HuggingFace.
+
+### Step 4: Using the Fine-Tuned Model
 
 After training completes, the LoRA adapter and tokenizer are saved to `outputs/lora-sft/`. To use the fine-tuned model for inference, load both the base model and the adapter:
 
