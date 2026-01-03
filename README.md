@@ -181,27 +181,8 @@ The evaluation produces several key metrics:
 
 #### Example Output
 
-```json
-{
-  "baseline": {
-    "mean_score": 4.2,
-    "std_dev": 0.4,
-    "safe_rate": 1.0,
-    "num_samples": 5
-  },
-  "finetuned": {
-    "mean_score": 4.0,
-    "std_dev": 0.0,
-    "safe_rate": 1.0,
-    "num_samples": 5
-  },
-  "delta": {
-    "delta_mean": -0.2,
-    "delta_safe_rate": 0.0,
-    "improved_fraction": 0.0
-  }
-}
-```
+<img width="3072" height="982" alt="image" src="https://github.com/user-attachments/assets/96e74ef1-40a9-48db-ae25-7026f547aaa3" />
+
 
 **Interpreting Results:**
 
