@@ -10,9 +10,9 @@ from trl import SFTTrainer, SFTConfig
 
 @dataclass
 class TrainArgs:
-    base_model: str = "microsoft/phi-2"  # phi-2 is better for reasoning/instruction tasks
+    # base_model: str = "microsoft/phi-2"  # phi-2 is better for reasoning/instruction tasks
     # base_model: str = "gpt2"  # GPT-2 (124M) - lightweight option
-    # base_model: str = "google/gemma-2b-it"  # Gemma 2B instruct
+    base_model: str = "google/gemma-2b-it"  # Gemma 2B instruct
     train_path: str = "datasets/sft/train.jsonl"
     val_path: str = "datasets/sft/val.jsonl"
     out_dir: str = "outputs/lora-sft"
@@ -73,9 +73,9 @@ def main(cfg: TrainArgs):
         lora_dropout=cfg.lora_dropout,
         bias="none",
         task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "dense"]  # Phi-2 module names
+        # target_modules=["q_proj", "k_proj", "v_proj", "dense"]  # Phi-2 module names
         # target_modules=["c_attn", "c_proj"]  # GPT-2 module names
-        # target_modules=["q_proj", "k_proj", "v_proj", "o_proj"]  # Gemma/LLaMA-style module names
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"]  # Gemma/LLaMA-style module names
     )
     model = get_peft_model(model, lora_cfg)
 
